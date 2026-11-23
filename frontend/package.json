@@ -1,0 +1,17 @@
+{
+  "name": "restaurant-manager",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.dev.config.js",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "vite": "5.4.21"
+  }
+}
