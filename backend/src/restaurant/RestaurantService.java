@@ -65,7 +65,10 @@ final class RestaurantService {
                 table.put("id", id);
                 table.put("seats", seats);
                 table.put("order", order == null ? null : billView(estimate(0, id, order)));
-                table.put("bill", bill == null ? null : billView(bill));
+                table.put("bill", bill == null || order != null ? null : billView(bill));
+                table.put("visitBills", bill == null ? List.of() : state.bills.stream()
+                        .filter(entry -> entry.visitId() == bill.visitId())
+                        .map(RestaurantService::billView).toList());
                 tables.add(table);
             }
         }
@@ -113,6 +116,16 @@ final class RestaurantService {
         }
         State next = new State(state);
         next.orders.put(table, new Order(order.guest(), order.party(), lines));
+        commit(next);
+    }
+
+    synchronized void continueOrder(int table, int lastBillId) throws RestaurantException, IOException {
+        Bill last = state.billedTables.get(table);
+        if (last == null || last.id() != lastBillId || state.orders.containsKey(table)) {
+            throw new RestaurantException(409, "This bill cannot start another order. Refresh the floor plan.");
+        }
+        State next = new State(state);
+        next.orders.put(table, new Order(last.guest(), last.party()));
         commit(next);
     }
 
@@ -180,7 +193,7 @@ final class RestaurantService {
                 .sorted(Comparator.comparingInt(Bill::id).reversed())
                 .toList();
         return Map.of("date", date.toString(), "count", bills.size(),
-                "covers", bills.stream().mapToInt(Bill::party).sum(),
+                "covers", bills.stream().filter(bill -> bill.id() == bill.visitId()).mapToInt(Bill::party).sum(),
                 "subtotal", bills.stream().mapToLong(Bill::subtotal).sum(),
                 "tax", bills.stream().mapToLong(Bill::tax).sum(),
                 "roundOff", bills.stream().mapToLong(Bill::roundOff).sum(),
@@ -203,11 +216,11 @@ final class RestaurantService {
 
     private Order activeOrder(int table) throws RestaurantException {
         seats(table);
-        if (state.billedTables.containsKey(table)) {
-            throw new RestaurantException(409, "This table has already been billed.");
-        }
         Order order = state.orders.get(table);
         if (order == null) {
+            if (state.billedTables.containsKey(table)) {
+                throw new RestaurantException(409, "Start another order on this billed table first.");
+            }
             throw new RestaurantException(409, "Seat guests at this table first.");
         }
         return order;
@@ -226,8 +239,11 @@ final class RestaurantService {
     }
 
     private Bill estimate(int id, int table, Order order) {
+        Bill previous = state.billedTables.get(table);
+        int visitId = previous == null ? id : previous.visitId();
+        long previouslyBilled = previous == null ? 0 : previous.visitTotal();
         return new Bill(id, today(), table, order.guest(), order.party(), taxRate,
-                List.copyOf(order.lines().values()), true);
+                List.copyOf(order.lines().values()), true, visitId, previouslyBilled);
     }
 
     private static Map<String, Object> billView(Bill bill) {
@@ -236,7 +252,8 @@ final class RestaurantService {
                 Map.entry("lines", bill.lines().stream().map(RestaurantService::lineView).toList()),
                 Map.entry("subtotal", bill.subtotal()), Map.entry("tax", bill.tax()),
                 Map.entry("roundOff", bill.roundOff()), Map.entry("total", bill.total()),
-                Map.entry("taxRate", bill.taxRate()));
+                Map.entry("taxRate", bill.taxRate()), Map.entry("visitId", bill.visitId()),
+                Map.entry("previouslyBilled", bill.previouslyBilled()), Map.entry("visitTotal", bill.visitTotal()));
     }
 
     private static Map<String, Object> lineView(OrderLine line) {

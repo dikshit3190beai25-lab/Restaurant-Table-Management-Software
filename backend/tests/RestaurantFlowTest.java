@@ -86,6 +86,7 @@ public final class RestaurantFlowTest {
             reject(400, () -> finalState.checkout(1));
             finalState.release(1);
             verifyRoundUpAndLegacyBills(file);
+            verifyFollowUpBills(file);
             System.out.println("PASS: seating, concurrent assignment, menu, orders, checkout, reports and persistence.");
         } finally {
             Files.deleteIfExists(file);
@@ -120,6 +121,39 @@ public final class RestaurantFlowTest {
         var oldBill = ((List<?>) oldReport.get("bills")).stream().map(entry -> (Map<?, ?>) entry)
                 .filter(entry -> entry.get("id").equals(1)).findFirst().orElseThrow();
         check(oldBill.get("total").equals(46380L), "Previous bills keep their original amount");
+    }
+
+    private static void verifyFollowUpBills(java.nio.file.Path file) throws Exception {
+        // Start from a billed table saved by the previous version.
+        Files.writeString(file, "TABLE_AND_TILL\t2\nids\t2\t2\n"
+                + "menu\t1\tSpecial\tMains\t44171\ttrue\n"
+                + "bill\t1\t2026-01-01\t1\tDemo\t2\t5\ttrue\n"
+                + "bill-line\t1\t1\tSpecial\t44171\t1\nbilled-table\t1\t1\n");
+        var service = new RestaurantService(new FileRestaurantStore(file), 5);
+        service.continueOrder(1, 1);
+        reject(409, () -> service.continueOrder(1, 1));
+        service.updateLine(1, 1, 2, true);
+        var restarted = new RestaurantService(new FileRestaurantStore(file), 5);
+        var second = restarted.checkout(1);
+        check(second.get("id").equals(2) && second.get("guest").equals("Demo"), "Same guest, new bill ID");
+        check(second.get("total").equals(92800L) && second.get("visitTotal").equals(139200L),
+                "Second receipt contains only its own items plus a separate visit total");
+        reject(409, () -> restarted.continueOrder(1, 1));
+        restarted.continueOrder(1, 2);
+        restarted.updateLine(1, 1, 1, true);
+        var third = restarted.checkout(1);
+        check(third.get("id").equals(3) && third.get("visitTotal").equals(185600L), "Three-bill visit total");
+        check(((List<?>) table(restarted, 1).get("visitBills")).size() == 3, "All visit receipts visible");
+        restarted.release(1);
+        restarted.assign(1, "Demo", 2);
+        restarted.updateLine(1, 1, 1, true);
+        var fresh = restarted.checkout(1);
+        check(fresh.get("visitId").equals(4) && fresh.get("visitTotal").equals(46400L), "New seating resets total");
+        var report = restarted.report(LocalDate.parse((String) fresh.get("date")));
+        long expected = 185600L;
+        boolean sameDate = fresh.get("date").equals("2026-01-01");
+        check(report.get("total").equals(expected + (sameDate ? 46400L : 0L)), "Sales count each round once");
+        check(report.get("covers").equals(sameDate ? 4 : 2), "Repeat rounds do not count guests again");
     }
 
     private static void check(boolean condition, String message) {

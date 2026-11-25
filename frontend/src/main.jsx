@@ -265,14 +265,20 @@ function Floor({ data, table, select, busy, act, setModal }) {
         {visit && <TableDiagram seats={table.seats} party={visit.party} detailed />}
         {table.order && <ActiveOrder table={table} busy={busy} act={act} setModal={setModal} />}
         {table.bill && <div className="stack active-order">
-          <p className="muted">Release the table when the guests leave.</p>
-          <button className="button secondary" onClick={() => setModal({ type: 'bill', bill: table.bill })}>
-            View {billName(table.bill.id)}
+          <button className="button primary" disabled={busy} onClick={() =>
+            act('continue', { table: table.id, bill: table.bill.id }, 'Another order is open for ' + table.bill.guest + '.')}>
+            Add another order
           </button>
-          <button className="button primary" disabled={busy}
+          <button className="button secondary" disabled={busy}
             onClick={() => act('release', { table: table.id }, tableName(table.id) + ' is available.')}>
             Release table
           </button>
+        </div>}
+        {table.visitBills?.length > 0 && <div className="stack active-order">
+          <h3>Bills for this visit</h3>
+          {table.visitBills.map(bill => <button key={bill.id} className="button secondary"
+            onClick={() => setModal({ type: 'bill', bill })}>{billName(bill.id)} · {money(bill.total)}</button>)}
+          <strong>Total billed this visit · {money(table.visitBills[table.visitBills.length - 1].visitTotal)}</strong>
         </div>}
         {!visit && <SeatForm key={table.id} table={table} busy={busy} act={act} />}
       </section>
@@ -344,7 +350,11 @@ function Totals({ entry }) {
     <div><dt>Subtotal</dt><dd>{money(entry.subtotal)}</dd></div>
     <div><dt>Tax ({entry.taxRate}%)</dt><dd>{money(entry.tax)}</dd></div>
     {entry.roundOff !== 0 && <div><dt>Round-off</dt><dd>{adjustment(entry.roundOff)}</dd></div>}
-    <div className="grand-total"><dt>Amount payable</dt><dd>{money(entry.total)}</dd></div>
+    <div className="grand-total"><dt>This bill</dt><dd>{money(entry.total)}</dd></div>
+    {entry.visitId > 0 && entry.visitId !== entry.id && <>
+      <div><dt>Earlier bills</dt><dd>{money(entry.previouslyBilled)}</dd></div>
+      <div className="grand-total"><dt>Visit total including this bill</dt><dd>{money(entry.visitTotal)}</dd></div>
+    </>}
   </dl>;
 }
 

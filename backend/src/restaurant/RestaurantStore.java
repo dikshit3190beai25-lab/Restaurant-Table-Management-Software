@@ -35,7 +35,8 @@ final class FileRestaurantStore implements RestaurantStore {
         List<String[]> rows = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(file.toFile(), StandardCharsets.UTF_8))) {
             String header = reader.readLine();
-            if (!"TABLE_AND_TILL\t1".equals(header) && !"TABLE_AND_TILL\t2".equals(header)) {
+            if (!"TABLE_AND_TILL\t1".equals(header) && !"TABLE_AND_TILL\t2".equals(header)
+                    && !"TABLE_AND_TILL\t3".equals(header)) {
                 throw new IOException("Unrecognized restaurant data file.");
             }
             String line;
@@ -74,7 +75,8 @@ final class FileRestaurantStore implements RestaurantStore {
                             orderLines.getOrDefault(id, Map.of())));
                     case "bill" -> state.bills.add(new Bill(id, LocalDate.parse(row[2]), number(row, 3),
                             row[4], number(row, 5), number(row, 6), billLines.getOrDefault(id, List.of()),
-                            row.length > 7 && Boolean.parseBoolean(row[7])));
+                            row.length > 7 && Boolean.parseBoolean(row[7]),
+                            row.length > 8 ? number(row, 8) : id, row.length > 9 ? Long.parseLong(row[9]) : 0));
                     case "order-line", "bill-line", "billed-table" -> { }
                     default -> throw new IOException("Unknown record in restaurant data file.");
                 }
@@ -85,7 +87,9 @@ final class FileRestaurantStore implements RestaurantStore {
                 if ("billed-table".equals(row[0])) {
                     int table = number(row, 1);
                     Bill bill = billsById.get(number(row, 2));
-                    if (bill == null || bill.table() != table || state.orders.containsKey(table)) {
+                    Order open = state.orders.get(table);
+                    if (bill == null || bill.table() != table || (open != null &&
+                            (!open.guest().equals(bill.guest()) || open.party() != bill.party()))) {
                         throw new IOException("Invalid billed table in restaurant data file.");
                     }
                     state.billedTables.put(table, bill);
@@ -111,7 +115,7 @@ final class FileRestaurantStore implements RestaurantStore {
         Path temporary = Files.createTempFile(file.getParent(), "restaurant-", ".tmp");
         try {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(temporary.toFile(), StandardCharsets.UTF_8))) {
-                write(writer, "TABLE_AND_TILL", 2);
+                write(writer, "TABLE_AND_TILL", 3);
                 write(writer, "ids", state.nextItemId, state.nextBillId);
                 for (MenuItem item : state.menu.values()) {
                     write(writer, "menu", item.id(), item.name(), item.category(), item.price(), item.available());
@@ -126,7 +130,7 @@ final class FileRestaurantStore implements RestaurantStore {
                 }
                 for (Bill bill : state.bills) {
                     write(writer, "bill", bill.id(), bill.date(), bill.table(), bill.guest(), bill.party(),
-                            bill.taxRate(), bill.roundToRupee());
+                            bill.taxRate(), bill.roundToRupee(), bill.visitId(), bill.previouslyBilled());
                     for (OrderLine line : bill.lines()) {
                         write(writer, "bill-line", bill.id(), line.itemId(), line.name(), line.price(), line.quantity());
                     }

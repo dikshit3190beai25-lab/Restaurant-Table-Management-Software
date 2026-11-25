@@ -94,6 +94,7 @@ public final class Main {
                 }
                 service.updateLine(number(form, "table"), number(form, "item"), quantity, add);
             }
+            case "/api/continue" -> service.continueOrder(number(form, "table"), number(form, "bill"));
             case "/api/release" -> service.release(number(form, "table"));
             case "/api/checkout" -> {
                 Map<String, Object> bill = service.checkout(number(form, "table"));

@@ -33,9 +33,13 @@ final class Models {
     }
 
     record Bill(int id, LocalDate date, int table, String guest, int party,
-                int taxRate, List<OrderLine> lines, boolean roundToRupee) implements Priced {
+                int taxRate, List<OrderLine> lines, boolean roundToRupee, int visitId, long previouslyBilled) implements Priced {
         Bill {
             lines = List.copyOf(lines);
+        }
+
+        long visitTotal() {
+            return previouslyBilled + total();
         }
 
         long subtotal() {

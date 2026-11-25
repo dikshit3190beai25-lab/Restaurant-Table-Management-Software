@@ -50,7 +50,7 @@ The sample tax rate is a project setting. Daily reports use the India business d
 2. On **Floor plan**, combine **Available** and the **Seats** filter to find a table of the exact size you want. Enter a guest name and watch the seating diagram update as you change the party size. Select **Assign table** to show the filled seats on the floor plan.
 3. Select **Add item** whenever guests order another round. Use **−**, **＋**, or **×** to update the same order.
 4. Select **Preview bill** to see the running receipt. Use **Back to order** to keep adding items, or **Finalize bill** when the guests are ready to settle. The receipt shows itemized prices, tax, round-off, and the amount payable. Use **Print bill** for a paper or PDF copy.
-5. The table shows **Billed** after finalization. Select **Release table** after the guests leave. To reopen the receipt, select the bill in **Daily sales**.
+5. The table shows **Billed** after finalization. Choose **Add another order** for the same party to start a fresh round. Each round has its own bill ID. The table lists all bills for this visit and sums their rounded amounts. Daily sales count each bill once and guests on the first bill of the visit. Select **Release table** after the guests leave. To reopen the receipt, select the bill in **Daily sales**.
 6. Restart the backend and reopen the report to demonstrate persistence.
 
 To demonstrate billing with the original seed menu, order two Butter Naans and add a Sweet Lassi in the next round. The subtotal is ₹227.00, the demo tax is ₹11.35, and the round-off is −₹0.35. The amount payable is ₹238.00. An amount of ₹463.80 rounds up to ₹464.00.
